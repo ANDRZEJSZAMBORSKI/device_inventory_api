@@ -1,0 +1,42 @@
+# virtual env
+.venv/
+
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# secrets
+.env
+
+# config
+config.sh
+
+# packaging / editable install artifacts
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Future test reports
+allure-results/
+allure-report/
+.coverage
+htmlcov/
+
+# Local machine CA certificates
+avast-root.cer
+avast-root.crt
+
+# Local database
+db.sqlite3
+
+
