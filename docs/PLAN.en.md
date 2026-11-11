@@ -1,122 +1,142 @@
-# Learning plan: Device Inventory API
+# Curriculum: Device Inventory API
 
 **EN** · [RU](PLAN.md) · [PL](PLAN.pl.md)
 
-**Updated:** 2026-11-11  
-**Repo:** `device_inventory_api`  
-**Continuation of:** [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep) — mock `device_lab` → **real** Django backend.
+**Version:** 2026-11-11  
+**Case repository:** https://github.com/ANDRZEJSZAMBORSKI/device_inventory_api  
+**Prerequisite lab:** https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep (`device_lab`)
 
 ---
 
-## 1. Purpose
+## 1. Program objectives
 
-One end-to-end **portfolio backend** covering the **full program**:
+Develop a complete Django web service lifecycle:
 
-| Layer | Topics |
-|-------|--------|
-| **Django** | MTV, settings, URLs, templates as needed, admin (brief) |
-| **Database** | SQLite (D1–D2) → **PostgreSQL** (S1), ORM, migrations, SQL |
-| **API** | DRF: serializers, ViewSets, auth, validation, filters |
-| **Domain** | Device inventory: states, heartbeat, DFU — same as `device_lab` |
-| **Testing** | `TestCase` + `Client`, `APITestCase`, **pytest-django**, DB asserts |
-| **QA automation** | **httpx** + **Pydantic** + **Allure** (lab_fw ideas, against live Django) |
-| **Infra** | **Dockerfile**, **Docker Compose** (web + postgres + tests), **GitHub Actions** |
+- HTTP API and routing design;
+- schema design and migrations;
+- PostgreSQL administration and SQL ↔ ORM mapping;
+- DRF REST with authentication and authorization;
+- layered testing (in-process and black-box HTTP);
+- delivery via Docker Compose and GitHub Actions.
 
-**Mode:** spec → you code → theory → review. No changes to your logic/tests without OK.
+Domain: **device inventory** (online/offline, heartbeat, DFU), traceable to the `device_lab` mock specification.
 
 ---
 
-## 2. Progress
+## 2. Learning outcomes
 
-| Module | Status |
-|--------|--------|
-| **D0** bootstrap | nearly done: add **git** + tri-lingual docs |
-| **D1.1 + T1.1** | **next** — health + Client |
-| Block A rest | open |
-| Blocks B–D | locked until A passed |
-
-Put Django/DRF on resume only after **block A** (your call).
-
----
-
-## 3. Mandatory sequence
-
-```text
-Block A — Django core
-  D0  venv, startproject, git
-  D1  MTV, URLs, JsonResponse (no DRF)
-  T1  TestCase + Client
-  D2  Device model, ORM
-  T2  model tests + pytest-django
-  S1  PostgreSQL + docs/SQL.md
-
-Block B — API & domain
-  D3  DRF CRUD
-  T3  APITestCase
-  D4  Auth + owner
-  T4  401/403
-  D5  filters, errors, docs/API.md
-  T5  CRUD matrix, DB asserts
-  D5B  heartbeat + DFU (device_lab parity)
-  T5+  transitions, 409
-
-Block C — external QA layer
-  T6  httpx + Pydantic + Allure
-
-Block D — containers & CI
-  D6  Docker + Compose
-  T6b  GitHub Actions + Allure artifact
-```
-
-Ship **D + T** together; no skipping.
+| ID | Outcome |
+|----|---------|
+| LO-1 | Explain MTV, Django request lifecycle, middleware |
+| LO-2 | Design modular urlconf with `include` and named routes |
+| LO-3 | Implement views and JSON responses; justify DRF adoption |
+| LO-4 | Design models, migrations, ORM and SQL equivalents |
+| LO-5 | Test views with `Client`; test APIs with `APITestCase` |
+| LO-6 | Deliver REST CRUD, auth, filters, error contracts |
+| LO-7 | Automate device state flows (heartbeat, DFU) |
+| LO-8 | Integrate httpx + Pydantic + Allure against deployed service |
+| LO-9 | Build images, Compose stacks, CI pipelines with test artifacts |
 
 ---
 
-## 4. Module details (summary)
+## 3. Prerequisites
 
-- **D0:** venv, Django 5.x, `check`, migrate, `.gitignore`, tri-lingual README/PLAN, git.
-- **D1/T1:** health endpoint, Client tests, dotenv in D1.2.
-- **D2/T2:** Device model, migrations, pytest-django.
-- **S1:** Postgres, SQL exercises.
-- **D3/T3:** DRF CRUD, ≥10 APITests.
-- **D4/T4:** Token or JWT, ownership isolation.
-- **D5/T5:** production-style API, ≥40 API tests total toward end of B.
-- **D5B:** heartbeat/DFU routes aligned with `hp-qa` mock API.
-- **T6:** black-box httpx tests, Allure.
-- **D6/T6b:** Compose (web+db+test job), GHA on PR, Allure upload.
+Python 3.11+, virtual environments, Git, HTTP/JSON, SQL basics, pytest and HTTP client experience (hp-qa-junior-prep).
 
 ---
 
-## 5. Target repo layout
+## 4. Program structure
 
-`config/`, `apps/`, `tests/{unit,api,integration}/`, `docs/`, `Dockerfile`, `docker-compose.yml`, `.github/workflows/`.
+| Block | Modules | Topics |
+|-------|---------|--------|
+| **I** | D0, D1, T1 | Tooling, HTTP, Client tests |
+| **II** | D2, T2, S1 | ORM, pytest-django, PostgreSQL |
+| **III** | D3–D5B, T3–T5 | DRF, auth, Inventory domain |
+| **IV** | T6 | httpx, Pydantic, Allure |
+| **V** | D6, T6b | Docker Compose, GitHub Actions |
 
----
-
-## 6. End-of-track DoD
-
-Explain and demonstrate: ORM/migrations, test layers, HTTP+Postgres checks, DRF errors, Compose green run, green CI.
-
----
-
-## 7. Module sign-off
-
-Code in git, command output, theory answers, review (you fix).
+Estimated workload: 200–280 hours of guided implementation and documentation.
 
 ---
 
-## 8. Time (~8–12 h/week)
+## 5. Block I — HTTP and tooling
 
-A: 2–3 weeks · B: 4–6 · C–D: 2–3.
+### D0 — Project bootstrap
+
+venv, dependencies, `startproject`, migrations for built-in apps, VCS, tri-lingual docs. **Status: implemented.**
+
+### D1 — HTTP layer
+
+MTV, `HttpRequest`, `JsonResponse`, nested urlconf. Lab: `core` app, `/health/` diagnostic JSON (`status: ok` + request mirror). **Status: implemented** (`core/views.py`, `core/urls.py`, `config/urls.py`).
+
+### T1 — View-level testing
+
+`TestCase`, `Client`, test database, `QueryDict` semantics. Lab: `tests/test_health.py`. **Status: implemented.**
+
+### D1.2 — Configuration (next)
+
+`python-dotenv`, secrets, `ALLOWED_HOSTS`.
 
 ---
 
-## 9. Out of scope (for now)
+## 6. Block II — Data
 
-Celery, Kafka, K8s prod, GraphQL.
+D2 Device model; T2 model tests + pytest-django; S1 PostgreSQL + `docs/SQL.md`.
 
 ---
 
-## 10. Next step
+## 7. Block III — REST
 
-Finish **D0** (git + docs commit) → **D1.1 + T1.1**.
+D3/T3 DRF CRUD; D4/T4 auth and isolation; D5/T5 API hardening; D5B traceability to `device_lab`.
+
+---
+
+## 8. Block IV — External automation
+
+T6 httpx, Pydantic schemas, Allure reports.
+
+---
+
+## 9. Block V — Delivery
+
+D6 Dockerfile and Compose (web, db, migrate, test job); T6b GitHub Actions + Allure artifacts.
+
+---
+
+## 10. Deliverables matrix
+
+| Artifact | Module |
+|----------|--------|
+| `README*.md` | D0+, updated per block |
+| `docs/API.md` | D5 |
+| `docs/SQL.md` | S1 |
+| `docker-compose.yml` | D6 |
+| `.github/workflows/` | T6b |
+
+---
+
+## 11. Pedagogy
+
+Git commits per module; documentation in RU/EN/PL; regression via `manage.py test` → pytest → CI.
+
+---
+
+## 12. Target architecture
+
+Client → WSGI → middleware → DRF → ORM → PostgreSQL; CI runs Compose + tests + Allure.
+
+---
+
+## 13. References
+
+Django 5.2, DRF, PostgreSQL docs, OWASP API Security (auth module).
+
+---
+
+## 14. Repository timeline
+
+| Revision | Content |
+|----------|---------|
+| bootstrap | D0 |
+| http-d1 | D1/T1 `core`, `/health/`, tests |
+| planned | D1.2+, D2 models |

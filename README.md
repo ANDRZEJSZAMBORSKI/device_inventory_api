@@ -4,87 +4,276 @@
 
 <!-- readme-preamble -->
 
-**Device Inventory API** — портфолио-проект на **Django**: backend, база данных, REST API, тестирование в экосистеме Django, затем **Docker / Docker Compose** и **GitHub Actions**. Это **продолжение** учебного репозитория [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep): там — mock **Device Inventory** (`device_lab`, HTTP-моки, pytest, Allure, CI); **здесь** — **реальный** сервис на Django/DRF + **PostgreSQL**, с тем же доменом (устройства, heartbeat, DFU, состояния online/offline).
+**Device Inventory API** — учебно-производственный репозиторий полного цикла разработки веб-сервиса на **Django**: HTTP-слой, персистентность (SQLite → PostgreSQL), **Django REST Framework**, доменная модель инвентаризации устройств, автоматизированное тестирование, контейнеризация и непрерывная интеграция. Проект логически продолжает [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep): mock-слой `device_lab` здесь реализуется как **реальный backend** с той же предметной областью (состояния устройств, heartbeat, обновление прошивки).
 
-| Версия трека | Статус на 2026-11-11 |
-|--------------|----------------------|
-| **D0** — bootstrap (venv, `startproject`, git) | в работе |
-| **D1–D6, T1–T6, S1, T6b** | по [docs/PLAN.md](docs/PLAN.md) |
+Документ одновременно **эксплуатационная инструкция** (команды, структура, тесты) и **учебное пособие по архитектуре Django** с привязкой к исходному коду. Три языка: **RU** (этот файл), [EN](README.en.md), [PL](README.pl.md). Детальный учебный план курса: [docs/PLAN.md](docs/PLAN.md).
 
-Полная программа: Django **без** DRF → models/ORM → Postgres/SQL → DRF → auth → Inventory API → pytest-django / APITestCase → **httpx** + Pydantic + Allure → **контейнеры + GHA**.
+### Назначение системы
 
-### Для кого
-
-- Junior **Python / Backend / QA**, который прошёл API-автоматизацию в `hp-qa-junior-prep` и собирает **полноценный backend** под резюме.
-- Тот, кто хочет честно связать **mock → production-style API** на одном домене.
+| Компонент | Роль |
+|-----------|------|
+| **Django (MTV)** | Маршрутизация HTTP, views, ORM, административный слой |
+| **PostgreSQL** | Производственное хранилище после модуля персистентности |
+| **DRF** | REST API, сериализация, аутентификация, пагинация |
+| **Тестовый контур** | `django.test.Client`, `APITestCase`, `pytest-django`, внешний **httpx** |
+| **Инфраструктура** | Docker Compose (приложение + БД), GitHub Actions |
 
 ### Связь с hp-qa-junior-prep
 
-| hp-qa-junior-prep | device_inventory_api |
-|-------------------|----------------------|
-| `src/device_lab/` — in-memory + `MockTransport` | Django models + Postgres |
-| `tests/device_lab/` (~76 тестов) | `tests/` — Django TestCase, APITestCase, pytest-django, позже httpx |
-| Compose + MockServer + GHA | Compose **web + db + test job** + GHA на этом репо |
-| Pydantic `Device`, state machine | DRF serializers + те же переходы (D5B) |
+| Mock / automation (hp-qa) | Backend (этот репозиторий) |
+|---------------------------|----------------------------|
+| `InMemoryInventory`, `MockTransport` | ORM + транзакции Postgres |
+| Pydantic `Device`, FSM состояний | DRF serializers + бизнес-правила |
+| `tests/device_lab/` | `tests/api/`, интеграционный слой httpx |
+| Compose, MockServer, GHA | Compose web+db, workflow pytest |
 
-### Требования
+### Требования к окружению
 
-| Компонент | Примечание |
-|-----------|------------|
-| Python | **≥ 3.11** (сейчас venv может быть 3.14 — ок для учёбы) |
-| Git | обязателен с D0 |
-| Docker Desktop | блок **D6** (Compose) |
-| PostgreSQL | блок **S1** (локально или в контейнере) |
+| Компонент | Версия / примечание |
+|-----------|---------------------|
+| Python | ≥ 3.11 |
+| Django | 5.2.x (см. `requirements.txt`) |
+| Git | история изменений и CI |
+| Docker Desktop | модуль контейнеризации (поздний этап) |
+| PostgreSQL | модуль SQL/ORM (контейнер или локальный инстанс) |
 
-### Документация
+### Карта документации
 
-| Файл | Язык |
-|------|------|
-| [docs/PLAN.md](docs/PLAN.md) | RU — полный план модулей D/T/S |
-| [docs/PLAN.en.md](docs/PLAN.en.md) | EN |
-| [docs/PLAN.pl.md](docs/PLAN.pl.md) | PL |
+| Раздел README | Содержание | Код |
+|---------------|------------|-----|
+| [Быстрый старт](#быстрый-старт) | venv, check, migrate, runserver, тесты | корень репозитория |
+| [Структура](#структура-репозитория) | пакеты `config`, `core`, каталог `tests` | — |
+| [Модуль D1 — HTTP и MTV](#модуль-d1--http-слой-и-mtv) | `HttpRequest`, `JsonResponse`, маршруты | `core/views.py`, `core/urls.py` |
+| [Эндпоинт /health/](#контракт-get-health) | диагностический JSON | `core/views.py` |
+| [Тестирование Client](#тестирование-djangotestclient) | in-process HTTP без сокета | `tests/test_health.py` |
+| [Учебный план](#учебная-программа) | полная программа курса | `docs/PLAN.md` |
 
-### Быстрый старт (текущий этап D0)
+### Содержание
+
+1. [Быстрый старт](#быстрый-старт)
+2. [Структура репозитория](#структура-репозитория)
+3. [Модуль D1 — HTTP-слой и MTV](#модуль-d1--http-слой-и-mtv)
+4. [Контракт GET /health/](#контракт-get-health)
+5. [Маршрутизация URL](#маршрутизация-url)
+6. [Тестирование django.test.Client](#тестирование-djangotestclient)
+7. [Команды тестирования](#команды-тестирования)
+8. [Учебная программа](#учебная-программа)
+9. [Дальнейшее развитие](#дальнейшее-развитие)
+
+---
+
+## Быстрый старт
 
 ```bash
 cd /d/pyton_2/git/device_inventory_api
 source .venv/Scripts/activate
+pip install -r requirements.txt
 
 python manage.py check
 python manage.py migrate
 python manage.py runserver
 ```
 
-Открой `http://127.0.0.1:8000/` — стартовая страница Django. Секреты: скопируй `.env.example` → `.env` (подключение `dotenv` в **D1.2**).
+Проверка API:
 
-### Структура (целевая; нарастает по модулям)
+```bash
+curl -s http://127.0.0.1:8000/health/ | head
+```
+
+Запуск модульных тестов HTTP-слоя:
+
+```bash
+python manage.py test tests.test_health -v 2
+```
+
+Переменные окружения: шаблон `.env.example` → локальный `.env` (подключение через `python-dotenv` планируется в модуле конфигурации).
+
+---
+
+## Структура репозитория
 
 ```text
 device_inventory_api/
-  config/              # settings, urls, wsgi
-  apps/
-    devices/           # D2+
-    accounts/          # D4
-  tests/               # T1+
-  docs/                # PLAN, API.md, SQL.md
-  docker-compose.yml   # D6
-  .github/workflows/   # T6b
+  config/                 # настройки проекта, корневой urlconf, WSGI/ASGI
+  core/                   # приложение: views, urlconf приложения
+  tests/                  # проектные тесты (вне startapp)
+    test_health.py        # модуль D1: Client + HttpRequest
+  docs/
+    PLAN.md               # учебная программа (RU/EN/PL)
+  manage.py
+  requirements.txt
+  README.md
 ```
 
-Сейчас: `config/`, `manage.py`, `requirements.txt`.
+Пакет **`config`** — точка конфигурации Django (`settings`, `urls`, `wsgi`, `asgi`). Пакет **`core`** — первая прикладная app с HTTP views. Каталог **`tests`** — единая точка регрессии на уровне проекта.
 
-### Что будет в конце трека (Definition of Done)
+---
 
-- REST API устройств + auth + heartbeat/DFU (паритет с `device_lab`).
-- **PostgreSQL** + примеры SQL в `docs/SQL.md`.
-- Тесты: **Client**, **APITestCase**, **pytest-django**, слой **httpx** + Allure.
-- **Docker Compose**: приложение + БД + прогон тестов.
-- **GitHub Actions**: migrate → pytest → артефакт Allure.
+## Модуль D1 — HTTP-слой и MTV
 
-### Режим обучения
+### Архитектура MTV
 
-ТЗ → ты пишешь код и тесты → теория → review. Логику проекта и тестов ассистент **не меняет** без твоего явного OK (как в `hp-qa-junior-prep`).
+**MTV** (Model – Template – View) — организационная модель Django:
 
-### Лицензия
+| Слой | Ответственность | В текущей ревизии |
+|------|-----------------|-------------------|
+| **Model** | Схема данных, ORM, бизнес-инварианты у данных | встроенные apps (`auth`, …); доменная модель Device — следующий модуль |
+| **Template** | Представление (HTML и др.) | не используется |
+| **View** | Обработка `HttpRequest`, выбор ответа | `core.views.health` |
 
-Учебный / portfolio-проект. Детали — по мере появления `LICENSE`.
+Поток обработки GET `/health/`:
+
+```mermaid
+sequenceDiagram
+  participant C as Client / TestClient
+  participant U as URL resolver
+  participant M as Middleware chain
+  participant V as health view
+  participant R as JsonResponse
+
+  C->>M: HTTP GET /health/
+  M->>U: resolve path
+  U->>V: views.health(request)
+  V->>R: JSON body
+  R->>C: HttpResponse
+```
+
+### HttpRequest
+
+View получает объект **`HttpRequest`**: метод, путь, `GET`/`POST` (`QueryDict`), тело, заголовки, `META`, пользователь, сессия. Диагностический эндпоинт `/health/` сериализует срез этих атрибутов в JSON для наблюдаемости при разработке и в тестах.
+
+### JsonResponse vs DRF
+
+**`JsonResponse`** достаточен для детерминированного JSON и учебной диагностики. **Django REST Framework** подключается на этапе CRUD API: serializers, validation, auth, browsable API, routers.
+
+---
+
+## Контракт GET /health/
+
+| Элемент | Значение |
+|---------|----------|
+| Метод | `GET` |
+| Путь | `/health/` |
+| Имя маршрута | `health` (`reverse("health")`) |
+| Статус | `200` |
+| Content-Type | `application/json` |
+| Заголовок ответа | `X-API-Version: 1.0` |
+| Тело | JSON: поле `status: "ok"` + структурированное отражение `request`, `GET`, `POST`, `headers`, `META`, `user`, `session`, … |
+
+Повторяющиеся query-параметры отражаются списками в `GET` (семантика `QueryDict.getlist`). Эндпоинт предназначен для **среды разработки и тестов**; в production health обычно минимизируют до `{"status":"ok"}` без раскрытия метаданных запроса.
+
+Пример (сокращённо):
+
+```json
+{
+    "status": "ok",
+    "request": {
+        "method": "GET",
+        "path": "/health/",
+        "path_info": "/health/",
+        "scheme": "http"
+    },
+    "GET": {},
+    "user": {
+        "is_authenticated": false,
+        "is_anonymous": true
+    }
+}
+```
+
+Реализация: `core/views.py`, функция `health`.
+
+---
+
+## Маршрутизация URL
+
+**Корень** (`config/urls.py`):
+
+```text
+admin/  → django.contrib.admin
+''      → include("core.urls")
+```
+
+**Приложение** (`core/urls.py`):
+
+```text
+health/ → views.health (name="health")
+```
+
+`include()` делегирует разбор остатка пути дочернему `urlpatterns`, сохраняя модульность: каждое приложение владеет своими маршрутами. Префикс `api/` в будущем вынесет REST под единый namespace без изменения views внутри apps.
+
+---
+
+## Тестирование django.test.Client
+
+**`django.test.Client`** выполняет полный внутренний цикл Django (middleware, resolver, view) **без** TCP-сервера. Это не mock view: вызывается тот же код, что и под WSGI.
+
+| Критерий | `django.test.Client` | `httpx` (внешний клиент) |
+|----------|----------------------|---------------------------|
+| Транспорт | in-process WSGI | HTTP по сети |
+| Сервер | не нужен | `runserver` / `live_server` / Compose |
+| Типичное применение | unit/integration view layer | контрактное и E2E тестирование |
+| Middleware | да | да (через реальный сервер) |
+
+Файл **`tests/test_health.py`** проверяет:
+
+- базовый GET без query string;
+- query-параметры и повторяющиеся ключи;
+- поведение `QueryDict` (`get`, `getlist`, immutability, `copy`, `mutable=True`);
+- заголовки ответа и структуру JSON.
+
+Запуск:
+
+```bash
+python manage.py test tests.test_health
+```
+
+Тестовая БД создаётся автоматически (`TestCase`); для текущих тестов персистентность не задействована, но механизм изоляции уже активен.
+
+---
+
+## Команды тестирования
+
+| Команда | Назначение |
+|---------|------------|
+| `python manage.py check` | системные проверки конфигурации |
+| `python manage.py test` | весь набор Django-test |
+| `python manage.py test tests.test_health -v 2` | модуль D1 |
+| `python manage.py show_urls` | *(при установке django-extensions)* обзор маршрутов — опционально |
+
+---
+
+## Учебная программа
+
+Последовательность модулей: **D0** (инфраструктура) → **D1/T1** (HTTP, Client) → **D2/T2** (ORM) → **S1** (PostgreSQL, SQL) → **D3–D5B** (DRF, auth, Device Inventory) → **T6** (httpx, Pydantic, Allure) → **D6/T6b** (Compose, GHA).
+
+Полное описание модулей, результатов обучения и артефактов: **[docs/PLAN.md](docs/PLAN.md)** (также EN/PL).
+
+### Статус реализации (ревизия репозитория)
+
+| Модуль | Артефакт |
+|--------|----------|
+| D0 | `config/`, `manage.py`, `requirements.txt`, документация |
+| D1 | `core/`, `GET /health/`, `include` routing |
+| T1 | `tests/test_health.py` |
+
+---
+
+## Дальнейшее развитие
+
+| Этап | Содержание |
+|------|------------|
+| Конфигурация | `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` из `.env` |
+| Персистентность | модель `Device`, миграции, admin |
+| API | DRF ViewSets, аутентификация, фильтрация |
+| Домен | heartbeat, DFU — паритет с `device_lab` |
+| Качество | pytest-django, покрытие API, Allure |
+| Доставка | Dockerfile, `docker-compose.yml`, workflow CI |
+
+---
+
+## Ссылки
+
+- Репозиторий: https://github.com/ANDRZEJSZAMBORSKI/device_inventory_api  
+- Сопутствующий QA / mock API: https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep  
+- Django 5.2 documentation: https://docs.djangoproject.com/en/5.2/

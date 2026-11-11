@@ -4,81 +4,95 @@
 
 <!-- readme-preamble -->
 
-**Device Inventory API** is a **Django** portfolio project: backend, database, REST API, Django-style testing, then **Docker / Docker Compose**, and **GitHub Actions**. It **continues** the training repo [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep): there you have a mock **Device Inventory** (`device_lab`, HTTP mocks, pytest, Allure, CI); **here** you build a **real** service with Django/DRF + **PostgreSQL**, same domain (devices, heartbeat, DFU, online/offline states).
+**Device Inventory API** is an end-to-end **Django** codebase: HTTP layer, persistence (SQLite → PostgreSQL), **Django REST Framework**, device inventory domain, automated testing, containerization, and continuous integration. It continues [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep): the mock `device_lab` layer is implemented here as a **production-style backend** (device states, heartbeat, firmware update flows).
 
-| Track stage | Status on 2026-11-11 |
-|-------------|----------------------|
-| **D0** — bootstrap (venv, `startproject`, git) | in progress |
-| **D1–D6, T1–T6, S1, T6b** | see [docs/PLAN.en.md](docs/PLAN.en.md) |
+This document is both a **runbook** (commands, layout, tests) and a **technical guide** to Django architecture tied to source files. Languages: [RU](README.md), **EN** (this file), [PL](README.pl.md). Full curriculum: [docs/PLAN.en.md](docs/PLAN.en.md).
 
-Full program: Django **without** DRF → models/ORM → Postgres/SQL → DRF → auth → Inventory API → pytest-django / APITestCase → **httpx** + Pydantic + Allure → **containers + GHA**.
+### System purpose
 
-### Who it is for
+| Layer | Responsibility |
+|-------|----------------|
+| **Django (MTV)** | HTTP routing, views, ORM, admin |
+| **PostgreSQL** | Primary store after the persistence module |
+| **DRF** | REST, serialization, authentication, pagination |
+| **Test stack** | `Client`, `APITestCase`, `pytest-django`, **httpx** |
+| **Delivery** | Docker Compose, GitHub Actions |
 
-- Junior **Python / Backend / QA** who completed API automation in `hp-qa-junior-prep` and wants a **complete backend** for their resume.
-- Anyone who wants a clear **mock → production-style API** story on one domain.
+### hp-qa-junior-prep alignment
 
-### Link to hp-qa-junior-prep
-
-| hp-qa-junior-prep | device_inventory_api |
-|-------------------|----------------------|
-| `src/device_lab/` — in-memory + `MockTransport` | Django models + Postgres |
-| `tests/device_lab/` (~76 tests) | `tests/` — TestCase, APITestCase, pytest-django, later httpx |
-| Compose + MockServer + GHA | Compose **web + db + test job** + GHA in this repo |
-| Pydantic `Device`, state machine | DRF serializers + same transitions (D5B) |
+| hp-qa (mock / QA) | This repository |
+|-------------------|-----------------|
+| `InMemoryInventory`, `MockTransport` | ORM + Postgres transactions |
+| Pydantic `Device`, state FSM | DRF + domain rules |
+| `tests/device_lab/` | `tests/api/`, httpx integration |
+| Compose, GHA | web + db Compose, CI workflows |
 
 ### Requirements
 
-| Component | Note |
-|-----------|------|
-| Python | **≥ 3.11** (venv may use 3.14 — fine for learning) |
-| Git | required from D0 |
-| Docker Desktop | block **D6** (Compose) |
-| PostgreSQL | block **S1** (local or container) |
+Python ≥ 3.11, Django 5.2.x (`requirements.txt`), Git, Docker and PostgreSQL in later modules.
 
-### Documentation
-
-| File | Language |
-|------|----------|
-| [docs/PLAN.md](docs/PLAN.md) | RU |
-| [docs/PLAN.en.md](docs/PLAN.en.md) | EN — full D/T/S module plan |
-| [docs/PLAN.pl.md](docs/PLAN.pl.md) | PL |
-
-### Quick start (current stage D0)
+### Quick start
 
 ```bash
 cd /d/pyton_2/git/device_inventory_api
 source .venv/Scripts/activate
-
+pip install -r requirements.txt
 python manage.py check
 python manage.py migrate
 python manage.py runserver
 ```
 
-Open `http://127.0.0.1:8000/` — Django welcome page. Secrets: copy `.env.example` → `.env` (`dotenv` wiring in **D1.2**).
+Tests (module D1):
 
-### Target layout (grows module by module)
-
-```text
-device_inventory_api/
-  config/
-  apps/devices/, apps/accounts/
-  tests/
-  docs/
-  docker-compose.yml
-  .github/workflows/
+```bash
+python manage.py test tests.test_health -v 2
 ```
 
-Today: `config/`, `manage.py`, `requirements.txt`.
+### Repository layout
 
-### End-of-track goals
+`config/` — project settings and root URLconf. `core/` — first app with views and routes. `tests/` — project-level test suite. `docs/` — curriculum (PLAN).
 
-- Device REST API + auth + heartbeat/DFU (parity with `device_lab`).
-- **PostgreSQL** + sample SQL in `docs/SQL.md`.
-- Tests: **Client**, **APITestCase**, **pytest-django**, **httpx** + Allure layer.
-- **Docker Compose**: app + DB + test run.
-- **GitHub Actions**: migrate → pytest → Allure artifact.
+### Module D1 — HTTP and MTV
 
-### Learning mode
+**MTV:** Model (data), Template (presentation), View (request handling). Current revision: View-only (`core.views.health`); domain models follow in the ORM module.
 
-Spec → you code and test → theory → review. Project/test logic is **not** changed by the assistant without your explicit OK (same as `hp-qa-junior-prep`).
+**Request flow:** Client → middleware → URL resolver → `health(request)` → `JsonResponse`.
+
+**HttpRequest** carries method, path, query (`QueryDict`), body, headers, `META`, user, session. The `/health/` endpoint exposes a structured snapshot for development observability and regression tests.
+
+**JsonResponse** covers deterministic JSON; **DRF** is introduced for CRUD REST.
+
+### GET /health/ contract
+
+| Item | Value |
+|------|--------|
+| Method | GET |
+| Path | `/health/` |
+| Route name | `health` |
+| Status | 200 |
+| Header | `X-API-Version: 1.0` |
+| Body | `status: ok` plus structured request mirror fields |
+
+Repeated query keys appear as lists in `GET`. Production health endpoints are typically minimal; this revision is diagnostic by design.
+
+### URL routing
+
+`config/urls.py`: `admin/` + `include("core.urls")`. `core/urls.py`: `health/` → `views.health`. `include()` keeps per-app URL modules decoupled.
+
+### django.test.Client
+
+Runs the full Django stack in-process without a listening socket—not a view mock. Contrasts with **httpx**, which targets a real HTTP listener (`runserver`, `live_server`, or Compose).
+
+`tests/test_health.py` covers bare GET, query parameters, repeated keys, and `QueryDict` semantics.
+
+### Curriculum
+
+See **[docs/PLAN.en.md](docs/PLAN.en.md)** for module sequence: D0 → D1/T1 → D2/T2 → S1 → DRF blocks → httpx/Allure → Compose/GHA.
+
+**Implemented:** D0 bootstrap, D1 `/health/`, T1 `test_health`.
+
+### References
+
+- https://github.com/ANDRZEJSZAMBORSKI/device_inventory_api  
+- https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep  
+- https://docs.djangoproject.com/en/5.2/

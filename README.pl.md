@@ -4,67 +4,60 @@
 
 <!-- readme-preamble -->
 
-**Device Inventory API** to projekt portfolio na **Django**: backend, baza danych, REST API, testowanie w ekosystemie Django, potem **Docker / Docker Compose** i **GitHub Actions**. To **kontynuacja** repozytorium szkoleniowego [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep): tam mock **Device Inventory** (`device_lab`, HTTP mocki, pytest, Allure, CI); **tu** — **prawdziwy** serwis Django/DRF + **PostgreSQL**, ten sam domen (urządzenia, heartbeat, DFU, stany online/offline).
+**Device Inventory API** to repozytorium **Django** obejmujące pełny cykl: warstwa HTTP, baza danych (SQLite → PostgreSQL), **DRF**, domena inwentaryzacji urządzeń, testy automatyczne, kontenery i CI. Kontynuacja [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep): mock `device_lab` realizowany jako **backend** (stany urządzeń, heartbeat, DFU).
 
-| Etap | Status 2026-11-11 |
-|------|-------------------|
-| **D0** — bootstrap (venv, `startproject`, git) | w toku |
-| **D1–D6, T1–T6, S1, T6b** | [docs/PLAN.pl.md](docs/PLAN.pl.md) |
+Dokument: **instrukcja eksploatacji** oraz **podręcznik** architektury Django powiązany z kodem. Języki: [RU](README.md), [EN](README.en.md), **PL** (ten plik). Program kursu: [docs/PLAN.pl.md](docs/PLAN.pl.md).
 
-Pełny program: Django **bez** DRF → modele/ORM → Postgres/SQL → DRF → auth → Inventory API → pytest-django / APITestCase → **httpx** + Pydantic + Allure → **kontenery + GHA**.
+### Cel systemu
 
-### Dla kogo
-
-- Junior **Python / Backend / QA**, który przeszedł automatyzację API w `hp-qa-junior-prep` i buduje **pełny backend** do CV.
-- Kto chce pokazać historię **mock → API produkcyjnego stylu** w jednej domenie.
+Warstwy: Django MTV, PostgreSQL, DRF, zestaw testów (`Client`, APITestCase, pytest-django, httpx), Docker Compose i GitHub Actions.
 
 ### Powiązanie z hp-qa-junior-prep
 
-| hp-qa-junior-prep | device_inventory_api |
-|-------------------|----------------------|
-| `src/device_lab/` — in-memory + `MockTransport` | modele Django + Postgres |
-| `tests/device_lab/` (~76 testów) | `tests/` — TestCase, APITestCase, pytest-django, później httpx |
-| Compose + MockServer + GHA | Compose **web + db + test job** + GHA w tym repo |
-| Pydantic `Device`, maszyna stanów | serializery DRF + te same przejścia (D5B) |
+Mock in-memory i MockTransport → ORM + Postgres; testy `device_lab` → testy API tego serwisu.
 
-### Wymagania
-
-| Składnik | Uwaga |
-|----------|--------|
-| Python | **≥ 3.11** |
-| Git | od D0 |
-| Docker Desktop | blok **D6** |
-| PostgreSQL | blok **S1** |
-
-### Dokumentacja
-
-| Plik | Język |
-|------|--------|
-| [docs/PLAN.md](docs/PLAN.md) | RU |
-| [docs/PLAN.en.md](docs/PLAN.en.md) | EN |
-| [docs/PLAN.pl.md](docs/PLAN.pl.md) | PL — pełny plan modułów |
-
-### Szybki start (D0)
+### Szybki start
 
 ```bash
 cd /d/pyton_2/git/device_inventory_api
 source .venv/Scripts/activate
-
+pip install -r requirements.txt
 python manage.py check
 python manage.py migrate
 python manage.py runserver
+python manage.py test tests.test_health -v 2
 ```
 
-`http://127.0.0.1:8000/` — strona powitalna Django. Sekrety: `.env.example` → `.env` (podłączenie w **D1.2**).
+### Struktura
 
-### Struktura docelowa
+`config/` — ustawienia projektu. `core/` — widoki i trasy aplikacji. `tests/` — testy projektu. `docs/` — program nauczania.
 
-Rosnie moduł po module: `apps/devices/`, `tests/`, `docker-compose.yml`, `.github/workflows/`.
+### Moduł D1 — HTTP i MTV
 
-### Cel końcowy
+**MTV:** Model (dane), Template (prezentacja), View (obsługa żądań). Obecna wersja: View `health` w `core/views.py`.
 
-REST + auth + heartbeat/DFU, Postgres, pełne testy, Compose, GitHub Actions.
+**HttpRequest** — metoda, ścieżka, `GET`/`POST`, nagłówki, użytkownik, sesja. Endpoint `/health/` zwraca JSON diagnostyczny (także do testów regresji).
 
-### Tryb nauki
+**JsonResponse** dla prostego JSON; **DRF** w modułach CRUD.
 
-TZ → kod i testy po Twojej stronie → teoria → review. Logiki projektu **nie zmieniamy** bez Twojej zgody (jak w `hp-qa-junior-prep`).
+### Kontrakt GET /health/
+
+Ścieżka `/health/`, status 200, nagłówek `X-API-Version: 1.0`, pole `status: ok` oraz odwzorowanie pól żądania. Powtarzalne parametry query jako listy w `GET`.
+
+### Routing
+
+`config/urls.py` → `include("core.urls")`; `core/urls.py` → `health/`.
+
+### django.test.Client
+
+Pełny stos Django in-process, bez serwera TCP. **httpx** — testy przez prawdziwy HTTP (późniejszy moduł).
+
+Plik `tests/test_health.py`: GET, query, QueryDict.
+
+### Program nauczania
+
+Szczegóły: **[docs/PLAN.pl.md](docs/PLAN.pl.md)**. Zrealizowano: D0, D1 `/health/`, T1.
+
+### Odnośniki
+
+https://github.com/ANDRZEJSZAMBORSKI/device_inventory_api · https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep

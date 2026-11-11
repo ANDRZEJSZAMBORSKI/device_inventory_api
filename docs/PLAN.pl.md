@@ -1,99 +1,67 @@
-# Plan nauki: Device Inventory API
+# Program nauczania: Device Inventory API
 
 **PL** · [RU](PLAN.md) · [EN](PLAN.en.md)
 
-**Aktualizacja:** 2026-11-11  
-**Repo:** `device_inventory_api`  
-**Kontynuacja:** [`hp-qa-junior-prep`](https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep) — mock `device_lab` → **prawdziwy** backend Django.
+**Wersja:** 2026-11-11  
+**Repozytorium:** https://github.com/ANDRZEJSZAMBORSKI/device_inventory_api  
+**Praktykum wstępne:** https://github.com/ANDRZEJSZAMBORSKI/hp-qa-junior-prep (`device_lab`)
 
 ---
 
-## 1. Cel projektu
+## 1. Cele programu
 
-Jeden **portfolio backend** z **pełnym programem**:
-
-| Warstwa | Zakres |
-|---------|--------|
-| **Django** | MTV, settings, URL, szablony wg potrzeb |
-| **Baza** | SQLite → **PostgreSQL**, ORM, migracje, SQL |
-| **API** | DRF: serializery, ViewSet, auth, walidacja |
-| **Domena** | Inventory urządzeń, heartbeat, DFU — jak `device_lab` |
-| **Testy** | TestCase, APITestCase, **pytest-django**, asercje DB |
-| **QA automation** | **httpx** + **Pydantic** + **Allure** |
-| **Infra** | **Docker**, **Compose**, **GitHub Actions** |
-
-**Tryb:** TZ → kod po Twojej stronie → teoria → review. Bez zmian logiki bez zgody.
+Pełny cykl usługi webowej Django: HTTP, schemat danych, PostgreSQL, DRF, testy warstwowe, Docker Compose, GitHub Actions. Domena: **inwentaryzacja urządzeń** (online/offline, heartbeat, DFU), zgodna ze specyfikacją mock `device_lab`.
 
 ---
 
-## 2. Postęp
+## 2. Efekty uczenia się
 
-| Moduł | Status |
-|-------|--------|
-| **D0** | prawie: brak **git** + commit dokumentacji |
-| **D1.1 + T1.1** | **następny** krok |
-| Blok A | otwarty |
-| B–D | zablokowane do zaliczenia A |
-
-Django w CV dopiero po **bloku A**.
+MTV i cykl żądania; urlconf modułowy; views i JSON; ORM i SQL; Client i APITestCase; REST i auth; scenariusze DFU; httpx/Allure; Compose i CI.
 
 ---
 
-## 3. Kolejność (obowiązkowa)
+## 3. Struktura
 
-```text
-Blok A — Django core: D0 → D1/T1 → D2/T2 → S1
-Blok B — API: D3/T3 → D4/T4 → D5/T5 → D5B
-Blok C — T6 (httpx, Allure)
-Blok D — D6 Compose + T6b GHA
-```
+| Blok | Moduły |
+|------|--------|
+| I | D0, D1, T1 — infrastruktura, HTTP, Client |
+| II | D2, T2, S1 — ORM, Postgres |
+| III | D3–D5B, T3–T5 — DRF, domena |
+| IV | T6 — httpx, Pydantic, Allure |
+| V | D6, T6b — kontenery, GHA |
 
-Moduły **D** i **T** zdawane razem.
-
----
-
-## 4. Skrót modułów
-
-- **D0:** venv, Django 5, check, migrate, README/PLAN PL/EN/RU, git.
-- **D1/T1:** health, Client, dotenv (D1.2).
-- **D2/T2:** model Device, pytest-django.
-- **S1:** Postgres, `docs/SQL.md`.
-- **D3–D5B:** DRF, auth, CRUD, DFU/heartbeat jak w mocku hp-qa.
-- **T6:** httpx + Allure przeciw działającemu serwisowi.
-- **D6/T6b:** kontenery web+db, workflow CI, artefakt Allure.
+Szacowany nakład: 200–280 godzin pracy z kodem i dokumentacją.
 
 ---
 
-## 5. Struktura docelowa
+## 4. Blok I — zrealizowane elementy
 
-`apps/`, `tests/`, `docs/`, `docker-compose.yml`, `.github/workflows/`.
+- **D0:** projekt `config`, zależności, dokumentacja trójjęzyczna.
+- **D1:** `core`, endpoint `/health/`, `JsonResponse`, routing `include`.
+- **T1:** `tests/test_health.py`, `QueryDict`, Client.
 
----
-
-## 6. DoD całego tracku
-
-ORM, warstwy testów, HTTP+Postgres, DRF, Compose, zielony CI.
+**Kolejny moduł:** D1.2 konfiguracja (`dotenv`, secrets).
 
 ---
 
-## 7. Zaliczenie modułu
+## 5. Blok II–V
 
-Git, output komend, teoria, review.
-
----
-
-## 8. Czas (~8–12 h/tydz.)
-
-A: 2–3 tyg. · B: 4–6 · C–D: 2–3.
+D2 model Device; S1 `docs/SQL.md`; D3–D5B REST i DFU; T6 httpx; D6 Compose; T6b Actions.
 
 ---
 
-## 9. Poza zakresem (na razie)
+## 6. Artefakty
 
-Celery, Kafka, K8s, GraphQL.
+README/PLAN (RU/EN/PL), `docs/API.md`, `docs/SQL.md`, `docker-compose.yml`, workflow CI, Allure.
 
 ---
 
-## 10. Następny krok
+## 7. Metodyka
 
-Domknąć **D0** (git + docs) → **D1.1 + T1.1**.
+Wersjonowanie w Git; aktualizacja dokumentacji po każdym bloku; regresja testami.
+
+---
+
+## 8. Literatura
+
+Dokumentacja Django 5.2, DRF, PostgreSQL.
