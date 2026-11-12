@@ -26,7 +26,11 @@ python manage.py check
 python manage.py migrate
 cp .env.example .env   # ustaw DJANGO_SECRET_KEY
 python manage.py runserver
-python manage.py test tests.test_health -v 2
+python manage.py test tests.test_routing tests.test_health -v 2
+```
+
+```bash
+python manage.py shell -c "from django.urls import reverse; print(reverse('health'), reverse('version'))"
 ```
 
 Bez `DJANGO_SECRET_KEY` uruchomienie się nie powiedzie (`ValueError`).
@@ -49,7 +53,17 @@ Bez `DJANGO_SECRET_KEY` uruchomienie się nie powiedzie (`ValueError`).
 
 ### Routing
 
-`config/urls.py` → `include("core.urls")`; `core/urls.py` → `health/`.
+`config/urls.py` → `include("core.urls")`.
+
+`core/urls.py`: `health/` (`name="health"`), `version/` (`name="version"`).
+
+**`reverse(name)`** — URL bez wpisywania ścieżki na sztywno. **`resolve(path)`** — dopasowanie widoku i nazwy trasy. **`path()`** zamiast starego `url(regex)`.
+
+### Moduł D1.3
+
+Testy: `tests/test_routing.py` (reverse, resolve, HTTP 404, `NoReverseMatch`).
+
+`GET /version/` → JSON: `api`, `module` (metadane przed OpenAPI).
 
 ### django.test.Client
 
@@ -73,7 +87,7 @@ Konfiguracja **poza kodem**: `.env` lokalnie (poza gitem), `.env.example` jako s
 
 ### Program nauczania
 
-Szczegóły: **[docs/PLAN.pl.md](docs/PLAN.pl.md)**. Zrealizowano: D0, D1 `/health/`, D1.2 env, T1.
+Szczegóły: **[docs/PLAN.pl.md](docs/PLAN.pl.md)**. Zrealizowano: D0, D1, D1.2, D1.3, T1 (`test_health`, `test_routing`).
 
 ### Odnośniki
 

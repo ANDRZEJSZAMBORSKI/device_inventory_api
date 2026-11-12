@@ -47,6 +47,7 @@
 | [Эндпоинт /health/](#контракт-get-health) | диагностический JSON | `core/views.py` |
 | [Тестирование Client](#тестирование-djangotestclient) | in-process HTTP без сокета | `tests/test_health.py` |
 | [Модуль D1.2 — конфигурация](#модуль-d12--конфигурация-и-12-factor) | `.env`, секреты, `ALLOWED_HOSTS` | `config/settings.py` |
+| [Модуль D1.3 — маршрутизация](#модуль-d13--именованные-url-reverse-resolve) | `name=`, `reverse`, 404 | `core/urls.py`, `tests/test_routing.py` |
 | [Учебный план](#учебная-программа) | полная программа курса | `docs/PLAN.md` |
 
 ### Содержание
@@ -58,9 +59,11 @@
 5. [Маршрутизация URL](#маршрутизация-url)
 6. [Тестирование django.test.Client](#тестирование-djangotestclient)
 7. [Модуль D1.2 — конфигурация и 12-factor](#модуль-d12--конфигурация-и-12-factor)
-8. [Команды тестирования](#команды-тестирования)
-9. [Учебная программа](#учебная-программа)
-10. [Дальнейшее развитие](#дальнейшее-развитие)
+8. [Модуль D1.3 — именованные URL](#модуль-d13--именованные-url-reverse-resolve)
+9. [Контракт GET /version/](#контракт-get-version)
+10. [Команды тестирования](#команды-тестирования)
+11. [Учебная программа](#учебная-программа)
+12. [Дальнейшее развитие](#дальнейшее-развитие)
 
 ---
 
@@ -85,10 +88,16 @@ python manage.py runserver
 curl -s http://127.0.0.1:8000/health/ | head
 ```
 
-Запуск модульных тестов HTTP-слоя:
+Запуск модульных тестов HTTP-слоя и маршрутизации:
 
 ```bash
-python manage.py test tests.test_health -v 2
+python manage.py test tests.test_routing tests.test_health -v 2
+```
+
+Проверка маршрутов в shell:
+
+```bash
+python manage.py shell -c "from django.urls import reverse; print(reverse('health'), reverse('version'))"
 ```
 
 Без файла `.env` и `DJANGO_SECRET_KEY` проект **не стартует** (`ValueError` в `settings.py`) — намеренная защита от запуска без секретов.
@@ -104,6 +113,7 @@ device_inventory_api/
   tests/                  # проектные тесты (вне startapp)
     __init__.py
     test_health.py        # модуль D1: Client + HttpRequest
+    test_routing.py       # D1.3: reverse, resolve, 404
   .env.example            # шаблон env (копия → .env локально)
   docs/
     PLAN.md               # учебная программа (RU/EN/PL)
@@ -126,7 +136,7 @@ device_inventory_api/
 |------|-----------------|-------------------|
 | **Model** | Схема данных, ORM, бизнес-инварианты у данных | встроенные apps (`auth`, …); доменная модель Device — следующий модуль |
 | **Template** | Представление (HTML и др.) | не используется |
-| **View** | Обработка `HttpRequest`, выбор ответа | `core.views.health` |
+| **View** | Обработка `HttpRequest`, выбор ответа | `core.views.health`, `core.views.version` |
 
 Поток обработки GET `/health/`:
 
@@ -204,10 +214,19 @@ admin/  → django.contrib.admin
 **Приложение** (`core/urls.py`):
 
 ```text
-health/ → views.health (name="health")
+health/  → views.health  (name="health")
+version/ → views.version (name="version")
 ```
 
 `include()` делегирует разбор остатка пути дочернему `urlpatterns`, сохраняя модульность: каждое приложение владеет своими маршрутами. Префикс `api/` в будущем вынесет REST под единый namespace без изменения views внутри apps.
+
+### Именованные маршруты и стабильные ссылки
+
+Параметр **`name`** в `path()` регистрирует логическое имя маршрута в пространстве имён Django. **`reverse("health")`** возвращает актуальный путь (`/health/`); при смене шаблона URL (например, на `system/health/`) обновляется одна запись в `urlpatterns`, а не все вхождения строки в коде, тестах и шаблонах.
+
+**`resolve(path)`** выполняет обратную операцию: по пути находит `url_name`, шаблон `route` и callable view — используется в тестах для проверки связи маршрут ↔ view.
+
+Синтаксис **`path()`** (Django 2+) опирается на конвертеры (`int`, `slug`, `uuid`); устаревший **`url(regex=...)`** требовал регулярных выражений и был менее читаем.
 
 ---
 
@@ -289,13 +308,62 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 
 ---
 
+## Модуль D1.3 — именованные URL, reverse, resolve
+
+### Цель модуля
+
+Закрепить **декларативную маршрутизацию**: имена маршрутов, генерация URL в коде и тестах, обработка отсутствующих путей и неверных имён.
+
+### Паттерны
+
+| API | Назначение |
+|-----|------------|
+| `path(..., name="...")` | регистрация имени маршрута |
+| `reverse(name)` | URL по имени; при ошибке — **`NoReverseMatch`** |
+| `resolve(path)` | match по HTTP-пути; при ошибке — **`Resolver404`** |
+| `Client.get(unknown)` | HTTP **404 Not Found** (стандартная страница Django) |
+
+Три уровня ошибки **не эквивалентны**: `reverse` не ходит в сеть; 404 — ответ приложения на HTTP-запрос.
+
+### Тестовый контур
+
+Файл **`tests/test_routing.py`**:
+
+- `reverse("health")` / `reverse("version")` и согласованность с `client.get`;
+- **`resolve`**: `url_name`, `func`, `route`;
+- 404 для несуществующего пути;
+- `NoReverseMatch` для неверного аргумента `reverse` (имя, не путь).
+
+### DoD модуля
+
+- Именованные маршруты `health`, `version`.
+- Регрессия маршрутизации и совместимость с `tests.test_health`.
+
+---
+
+## Контракт GET /version/
+
+| Элемент | Значение |
+|---------|----------|
+| Метод | `GET` |
+| Путь | `/version/` |
+| Имя | `version` |
+| Статус | `200` |
+| Тело JSON | `{"api": "device-inventory", "module": "core"}` |
+
+Учебный эндпоинт метаданных API; в production позже сменится или объединится со схемой OpenAPI (модуль D5).
+
+Реализация: `core/views.py`, функция `version`.
+
+---
+
 ## Команды тестирования
 
 | Команда | Назначение |
 |---------|------------|
 | `python manage.py check` | системные проверки конфигурации |
 | `python manage.py test` | весь набор Django-test |
-| `python manage.py test tests.test_health -v 2` | модуль D1 |
+| `python manage.py test tests.test_routing tests.test_health -v 2` | HTTP + маршрутизация (7 тестов) |
 | `python manage.py show_urls` | *(при установке django-extensions)* обзор маршрутов — опционально |
 
 ---
@@ -313,7 +381,8 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 | D0 | `config/`, `manage.py`, `requirements.txt`, документация |
 | D1 | `core/`, `GET /health/`, `include` routing |
 | D1.2 | `load_dotenv`, `SECRET_KEY` / `DEBUG` / `ALLOWED_HOSTS` из env |
-| T1 | `tests/test_health.py` |
+| D1.3 | `version/`, `reverse`, `resolve`, 404 |
+| T1 | `tests/test_health.py`, `tests/test_routing.py` |
 
 ---
 
@@ -321,8 +390,7 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 
 | Этап | Содержание |
 |------|------------|
-| Маршрутизация | именованные URL, `reverse`, тест 404 (D1.3) |
-| Персистентность | модель `Device`, миграции, admin |
+| Персистентность | модель `Device`, миграции, admin (D2) |
 | API | DRF ViewSets, аутентификация, фильтрация |
 | Домен | heartbeat, DFU — паритет с `device_lab` |
 | Качество | pytest-django, покрытие API, Allure |

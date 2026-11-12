@@ -40,7 +40,7 @@ Szacowany nakład: 200–280 godzin pracy z kodem i dokumentacją.
 - **D1:** `core`, endpoint `/health/`, `JsonResponse`, routing `include`.
 - **T1:** `tests/test_health.py`, `QueryDict`, Client.
 
-**Zrealizowano D1.2:** `dotenv`, secrets, `ALLOWED_HOSTS`. **Kolejny:** D1.3 routing.
+**Zrealizowano:** D1.2 config, D1.3 routing (`version`, `test_routing`). **Kolejny:** D2 modele.
 
 ---
 

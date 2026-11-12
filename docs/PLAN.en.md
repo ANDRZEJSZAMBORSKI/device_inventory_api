@@ -73,9 +73,13 @@ MTV, `HttpRequest`, `JsonResponse`, nested urlconf. Lab: `core` app, `/health/` 
 
 `TestCase`, `Client`, test database, `QueryDict` semantics. Lab: `tests/test_health.py`. **Status: implemented.**
 
-### D1.2 — Configuration (next)
+### D1.2 — Configuration
 
-`python-dotenv`, secrets, `ALLOWED_HOSTS`.
+`python-dotenv`, secrets, `ALLOWED_HOSTS`. **Done.**
+
+### D1.3 — Named routes
+
+`reverse`, `resolve`, `/version/`, routing tests. **Done.**
 
 ---
 
@@ -140,4 +144,5 @@ Django 5.2, DRF, PostgreSQL docs, OWASP API Security (auth module).
 | bootstrap | D0 |
 | http-d1 | D1/T1 `core`, `/health/`, tests |
 | config-d1.2 | dotenv, env `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` |
-| planned | D1.3+, D2 models |
+| routing-d1.3 | named URLs, test_routing |
+| planned | D2 models |

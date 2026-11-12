@@ -45,15 +45,19 @@ python manage.py runserver
 
 The app **refuses to start** without `DJANGO_SECRET_KEY` (`ValueError` in settings) by design.
 
-Tests (module D1):
+Tests (HTTP + routing):
 
 ```bash
-python manage.py test tests.test_health -v 2
+python manage.py test tests.test_routing tests.test_health -v 2
+```
+
+```bash
+python manage.py shell -c "from django.urls import reverse; print(reverse('health'), reverse('version'))"
 ```
 
 ### Repository layout
 
-`config/` — project settings and root URLconf. `core/` — first app with views and routes. `tests/` — project-level test suite. `docs/` — curriculum (PLAN).
+`config/` — project settings and root URLconf. `core/` — views and app urlconf. `tests/` — `test_health.py`, `test_routing.py`. `docs/` — curriculum (PLAN).
 
 ### Module D1 — HTTP and MTV
 
@@ -80,7 +84,28 @@ Repeated query keys appear as lists in `GET`. Production health endpoints are ty
 
 ### URL routing
 
-`config/urls.py`: `admin/` + `include("core.urls")`. `core/urls.py`: `health/` → `views.health`. `include()` keeps per-app URL modules decoupled.
+`config/urls.py`: `admin/` + `include("core.urls")`.
+
+`core/urls.py`:
+
+| Path | View | `name` |
+|------|------|--------|
+| `health/` | `health` | `health` |
+| `version/` | `version` | `version` |
+
+**`name`** registers a logical route id. **`reverse("health")`** yields `/health/`; URL template changes stay local to `urlpatterns`. **`resolve(path)`** maps a path back to `url_name`, `route`, and the view callable — validated in `tests/test_routing.py`.
+
+Django **`path()`** uses converters (`int`, `slug`, …); legacy **`url(regex)`** used regular expressions.
+
+### Module D1.3 — routing regression
+
+| Mechanism | Failure mode |
+|-----------|----------------|
+| `reverse(name)` | `NoReverseMatch` (bad name, not HTTP) |
+| `resolve(path)` | `Resolver404` |
+| `Client.get("/unknown/")` | HTTP **404** |
+
+`GET /version/` returns `{"api": "device-inventory", "module": "core"}` — metadata stub before OpenAPI (module D5).
 
 ### django.test.Client
 
@@ -108,7 +133,7 @@ CI will inject the same names via workflow secrets (module T6b).
 
 See **[docs/PLAN.en.md](docs/PLAN.en.md)** for module sequence: D0 → D1/T1 → D2/T2 → S1 → DRF blocks → httpx/Allure → Compose/GHA.
 
-**Implemented:** D0 bootstrap, D1 `/health/`, D1.2 env-based settings, T1 `test_health`.
+**Implemented:** D0 bootstrap; D1 `/health/`; D1.2 env settings; D1.3 named routes + `test_routing`; T1 `test_health`.
 
 ### References
 

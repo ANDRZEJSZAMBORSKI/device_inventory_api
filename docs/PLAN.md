@@ -81,6 +81,12 @@
 
 **Реализовано в репозитории:** да.
 
+### Модуль D1.3 — Именованные маршруты
+
+**Темы:** `name=` в `path`, `reverse`, `resolve`, HTTP 404 vs `NoReverseMatch` / `Resolver404`.
+
+**Практикум:** `version/`; `tests/test_routing.py`. **Реализовано:** да.
+
 ### Модуль T1 — Тестирование уровня View
 
 **Темы:** `django.test.TestCase`, `Client`, тестовая БД; contrast с httpx; `QueryDict`.
@@ -199,7 +205,8 @@ GitHub Actions: установка deps, БД, `migrate`, `pytest`, артефа
 | bootstrap | D0: Django project `config`, зависимости |
 | http-d1 | D1/T1: `core`, `/health/`, `tests/test_health.py` |
 | config-d1.2 | `load_dotenv`, env-driven `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` |
-| *planned* | D1.3 routing, D2 models, … |
+| routing-d1.3 | `version`, `reverse`/`resolve`, `test_routing` |
+| *planned* | D2 models, … |
 
 ---
 
