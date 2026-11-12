@@ -81,3 +81,18 @@ def health(request) -> JsonResponse:
                         },
                         **kwargs
                     )
+
+def version(request) -> JsonResponse:
+    data: dict = {
+                    "api": "device-inventory",
+                    "module": "core"
+                }
+    return JsonResponse(
+                            data,
+                            status=200,
+                            safe=True,
+                            json_dumps_params={
+                                "indent": 4,
+                                "ensure_ascii": False
+                            },
+                        )
