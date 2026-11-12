@@ -37,10 +37,13 @@ Python ≥ 3.11, Django 5.2.x (`requirements.txt`), Git, Docker and PostgreSQL i
 cd /d/pyton_2/git/device_inventory_api
 source .venv/Scripts/activate
 pip install -r requirements.txt
+cp .env.example .env   # set DJANGO_SECRET_KEY (see below)
 python manage.py check
 python manage.py migrate
 python manage.py runserver
 ```
+
+The app **refuses to start** without `DJANGO_SECRET_KEY` (`ValueError` in settings) by design.
 
 Tests (module D1):
 
@@ -85,11 +88,27 @@ Runs the full Django stack in-process without a listening socket—not a view mo
 
 `tests/test_health.py` covers bare GET, query parameters, repeated keys, and `QueryDict` semantics.
 
+### Module D1.2 — configuration (12-factor)
+
+**Config is separate from code:** secrets and environment flags live in `.env` (ignored by git); `.env.example` is the contract for developers.
+
+`load_dotenv(BASE_DIR / ".env")` runs in **`config/settings.py`** (not only in `manage.py`) so WSGI/ASGI/Gunicorn loads the same variables from an explicit project-root path. Missing `.env` does not crash `load_dotenv`, but **`DJANGO_SECRET_KEY` is still required**.
+
+| Variable | Role |
+|----------|------|
+| `DJANGO_SECRET_KEY` | required; Django signing/CSRF |
+| `DJANGO_DEBUG` | `1` or `TRUE` → debug on |
+| `DJANGO_ALLOWED_HOSTS` | comma-separated host names (no scheme/port) |
+
+**DEBUG** exposes internal tracebacks — for development only. **ALLOWED_HOSTS** mitigates host header attacks (relevant behind nginx too).
+
+CI will inject the same names via workflow secrets (module T6b).
+
 ### Curriculum
 
 See **[docs/PLAN.en.md](docs/PLAN.en.md)** for module sequence: D0 → D1/T1 → D2/T2 → S1 → DRF blocks → httpx/Allure → Compose/GHA.
 
-**Implemented:** D0 bootstrap, D1 `/health/`, T1 `test_health`.
+**Implemented:** D0 bootstrap, D1 `/health/`, D1.2 env-based settings, T1 `test_health`.
 
 ### References
 

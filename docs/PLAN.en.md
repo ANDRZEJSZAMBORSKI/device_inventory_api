@@ -139,4 +139,5 @@ Django 5.2, DRF, PostgreSQL docs, OWASP API Security (auth module).
 |----------|---------|
 | bootstrap | D0 |
 | http-d1 | D1/T1 `core`, `/health/`, tests |
-| planned | D1.2+, D2 models |
+| config-d1.2 | dotenv, env `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` |
+| planned | D1.3+, D2 models |

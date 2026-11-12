@@ -46,6 +46,7 @@
 | [Модуль D1 — HTTP и MTV](#модуль-d1--http-слой-и-mtv) | `HttpRequest`, `JsonResponse`, маршруты | `core/views.py`, `core/urls.py` |
 | [Эндпоинт /health/](#контракт-get-health) | диагностический JSON | `core/views.py` |
 | [Тестирование Client](#тестирование-djangotestclient) | in-process HTTP без сокета | `tests/test_health.py` |
+| [Модуль D1.2 — конфигурация](#модуль-d12--конфигурация-и-12-factor) | `.env`, секреты, `ALLOWED_HOSTS` | `config/settings.py` |
 | [Учебный план](#учебная-программа) | полная программа курса | `docs/PLAN.md` |
 
 ### Содержание
@@ -56,9 +57,10 @@
 4. [Контракт GET /health/](#контракт-get-health)
 5. [Маршрутизация URL](#маршрутизация-url)
 6. [Тестирование django.test.Client](#тестирование-djangotestclient)
-7. [Команды тестирования](#команды-тестирования)
-8. [Учебная программа](#учебная-программа)
-9. [Дальнейшее развитие](#дальнейшее-развитие)
+7. [Модуль D1.2 — конфигурация и 12-factor](#модуль-d12--конфигурация-и-12-factor)
+8. [Команды тестирования](#команды-тестирования)
+9. [Учебная программа](#учебная-программа)
+10. [Дальнейшее развитие](#дальнейшее-развитие)
 
 ---
 
@@ -68,6 +70,9 @@
 cd /d/pyton_2/git/device_inventory_api
 source .venv/Scripts/activate
 pip install -r requirements.txt
+
+cp .env.example .env
+# Заполните DJANGO_SECRET_KEY (см. раздел «Конфигурация»)
 
 python manage.py check
 python manage.py migrate
@@ -86,7 +91,7 @@ curl -s http://127.0.0.1:8000/health/ | head
 python manage.py test tests.test_health -v 2
 ```
 
-Переменные окружения: шаблон `.env.example` → локальный `.env` (подключение через `python-dotenv` планируется в модуле конфигурации).
+Без файла `.env` и `DJANGO_SECRET_KEY` проект **не стартует** (`ValueError` в `settings.py`) — намеренная защита от запуска без секретов.
 
 ---
 
@@ -97,7 +102,9 @@ device_inventory_api/
   config/                 # настройки проекта, корневой urlconf, WSGI/ASGI
   core/                   # приложение: views, urlconf приложения
   tests/                  # проектные тесты (вне startapp)
+    __init__.py
     test_health.py        # модуль D1: Client + HttpRequest
+  .env.example            # шаблон env (копия → .env локально)
   docs/
     PLAN.md               # учебная программа (RU/EN/PL)
   manage.py
@@ -232,6 +239,56 @@ python manage.py test tests.test_health
 
 ---
 
+## Модуль D1.2 — конфигурация и 12-factor
+
+### Принцип III (Config)
+
+Конфигурация **отделена от кода**: одни и те же артефакты Git работают в development, test и production; различаются только значения окружения. Секреты и флаги среды **не коммитятся**.
+
+### Загрузка переменных
+
+В `config/settings.py` сразу после `BASE_DIR`:
+
+```python
+load_dotenv(BASE_DIR / ".env")
+```
+
+Явный путь к файлу в корне репозитория исключает неоднозначность рабочей директории. Точка загрузки — **settings**, а не `manage.py`, потому что приложение поднимается также через **WSGI/ASGI** (Gunicorn, Uvicorn). Если `.env` отсутствует, `load_dotenv` не падает, но без `DJANGO_SECRET_KEY` инициализация останавливается на `ValueError`.
+
+### Переменные окружения
+
+| Переменная | Назначение | Пример |
+|------------|------------|--------|
+| `DJANGO_SECRET_KEY` | подпись сессий, CSRF, криптография Django | длинная случайная строка |
+| `DJANGO_DEBUG` | отладка: `1` или `TRUE` → `DEBUG=True`, иначе `False` | `1` (локально), `0` (prod) |
+| `DJANGO_ALLOWED_HOSTS` | разрешённые значения HTTP-заголовка `Host` (без схемы и порта) | `127.0.0.1,localhost` |
+
+Шаблон: **`.env.example`** (в git). Локальные значения: **`.env`** (в `.gitignore`).
+
+Генерация ключа:
+
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+### `DEBUG` и `ALLOWED_HOSTS`
+
+При **`DEBUG=True`** Django может показать диагностическую страницу с traceback и контекстом запроса — недопустимо в production. **`ALLOWED_HOSTS`** ограничивает поддельные `Host` (в т.ч. при проксировании через nginx); для `runserver` на `127.0.0.1:8000` в списке достаточно `127.0.0.1`.
+
+### Реализация в коде
+
+- `SECRET_KEY` — обязателен, иначе `raise ValueError`.
+- `DEBUG` — явная проверка строки (`1` / `TRUE`).
+- `ALLOWED_HOSTS` — split по запятой с `strip`; пустое значение → `[]`.
+
+Файл: `config/settings.py`.
+
+### CI (перспектива)
+
+В GitHub Actions те же имена переменных задаются через **secrets / workflow env**, без файла `.env` в репозитории (модуль T6b).
+
+---
+
 ## Команды тестирования
 
 | Команда | Назначение |
@@ -255,6 +312,7 @@ python manage.py test tests.test_health
 |--------|----------|
 | D0 | `config/`, `manage.py`, `requirements.txt`, документация |
 | D1 | `core/`, `GET /health/`, `include` routing |
+| D1.2 | `load_dotenv`, `SECRET_KEY` / `DEBUG` / `ALLOWED_HOSTS` из env |
 | T1 | `tests/test_health.py` |
 
 ---
@@ -263,7 +321,7 @@ python manage.py test tests.test_health
 
 | Этап | Содержание |
 |------|------------|
-| Конфигурация | `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` из `.env` |
+| Маршрутизация | именованные URL, `reverse`, тест 404 (D1.3) |
 | Персистентность | модель `Device`, миграции, admin |
 | API | DRF ViewSets, аутентификация, фильтрация |
 | Домен | heartbeat, DFU — паритет с `device_lab` |

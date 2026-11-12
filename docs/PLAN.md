@@ -89,9 +89,9 @@
 
 **Реализовано в репозитории:** да.
 
-### Модуль D1.2 — Конфигурация (следующий)
+### Модуль D1.2 — Конфигурация
 
-`python-dotenv`, `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, разделение dev/prod настроек.
+`python-dotenv`, `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, разделение dev/prod настроек. **Реализовано:** `config/settings.py`, `.env.example`.
 
 ---
 
@@ -198,7 +198,8 @@ GitHub Actions: установка deps, БД, `migrate`, `pytest`, артефа
 |---------|------------|
 | bootstrap | D0: Django project `config`, зависимости |
 | http-d1 | D1/T1: `core`, `/health/`, `tests/test_health.py` |
-| *planned* | D1.2 config, D2 models, … |
+| config-d1.2 | `load_dotenv`, env-driven `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` |
+| *planned* | D1.3 routing, D2 models, … |
 
 ---
 

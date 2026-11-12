@@ -24,9 +24,12 @@ source .venv/Scripts/activate
 pip install -r requirements.txt
 python manage.py check
 python manage.py migrate
+cp .env.example .env   # ustaw DJANGO_SECRET_KEY
 python manage.py runserver
 python manage.py test tests.test_health -v 2
 ```
+
+Bez `DJANGO_SECRET_KEY` uruchomienie się nie powiedzie (`ValueError`).
 
 ### Struktura
 
@@ -54,9 +57,23 @@ Pełny stos Django in-process, bez serwera TCP. **httpx** — testy przez prawdz
 
 Plik `tests/test_health.py`: GET, query, QueryDict.
 
+### Moduł D1.2 — konfiguracja (12-factor)
+
+Konfiguracja **poza kodem**: `.env` lokalnie (poza gitem), `.env.example` jako szablon.
+
+`load_dotenv(BASE_DIR / ".env")` w **`config/settings.py`** — jawna ścieżka do pliku w katalogu projektu; WSGI/ASGI widzi te same zmienne co `manage.py`. Brak `.env` nie kończy `load_dotenv`, ale **`DJANGO_SECRET_KEY` jest wymagany**.
+
+| Zmienna | Rola |
+|---------|------|
+| `DJANGO_SECRET_KEY` | wymagany |
+| `DJANGO_DEBUG` | `1` / `TRUE` → tryb debug |
+| `DJANGO_ALLOWED_HOSTS` | dozwolone hosty (bez portu i https) |
+
+`DEBUG=True` — tylko development. `ALLOWED_HOSTS` — ochrona nagłówka Host (także za nginx).
+
 ### Program nauczania
 
-Szczegóły: **[docs/PLAN.pl.md](docs/PLAN.pl.md)**. Zrealizowano: D0, D1 `/health/`, T1.
+Szczegóły: **[docs/PLAN.pl.md](docs/PLAN.pl.md)**. Zrealizowano: D0, D1 `/health/`, D1.2 env, T1.
 
 ### Odnośniki
 
