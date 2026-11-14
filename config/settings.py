@@ -44,6 +44,7 @@ else:
 
 INSTALLED_APPS = [
     'core',
+    'inventory',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -85,12 +86,31 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+DB_ENGINE = os.getenv("DB_ENGINE")
+if not DB_ENGINE or DB_ENGINE.strip().lower() not in ("sqlite", "postgresql"):
+    raise ValueError(
+        "DB_ENGINE must be either 'sqlite' or 'postgresql'."
+    )
+DB_ENGINE = DB_ENGINE.strip().lower()
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+            'default': {
+                        'ENGINE': 'django.db.backends.sqlite3',
+                        'NAME': BASE_DIR / 'db.sqlite3',
+                        "OPTIONS": {
+                                        "transaction_mode": "IMMEDIATE",
+                                    },
+                        'TEST': {
+                                    'NAME': BASE_DIR / 'test_db.sqlite3',
+                                },
+                        } if DB_ENGINE == "sqlite" else {
+                                                        'ENGINE': 'django.db.backends.postgresql',
+                                                        'NAME': os.getenv("DB_NAME"),
+                                                        'USER': os.getenv("DB_USER"),
+                                                        'PASSWORD': os.getenv("DB_PASSWORD"),
+                                                        'HOST': os.getenv("DB_HOST"),
+                                                        'PORT': os.getenv("DB_PORT"),
+                                                        }
+            }
 
 
 # Password validation
