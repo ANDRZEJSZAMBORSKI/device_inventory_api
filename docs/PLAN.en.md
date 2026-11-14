@@ -85,7 +85,17 @@ MTV, `HttpRequest`, `JsonResponse`, nested urlconf. Lab: `core` app, `/health/` 
 
 ## 6. Block II — Data
 
-D2 Device model; T2 model tests + pytest-django; S1 PostgreSQL + `docs/SQL.md`.
+### D2 — Device ORM
+
+App `inventory`, `Device` model, migrations, `DB_ENGINE` (sqlite/postgresql), auto `device_id`, `DeviceCounter` on Postgres. **Status: implemented.**
+
+### T2 — Model tests
+
+`tests/test_device_model.py`: `TestCase`, `setUpTestData`, `IntegrityError`, `TransactionTestCase` (concurrency, isolation on PostgreSQL). **Status: T2.1 implemented** (pytest-django — planned T2.2).
+
+### S1 — PostgreSQL
+
+Green run of PG-only tests, `docs/SQL.md`. **Next in Block II.**
 
 ---
 
@@ -145,4 +155,6 @@ Django 5.2, DRF, PostgreSQL docs, OWASP API Security (auth module).
 | http-d1 | D1/T1 `core`, `/health/`, tests |
 | config-d1.2 | dotenv, env `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` |
 | routing-d1.3 | named URLs, test_routing |
-| planned | D2 models |
+| orm-d2 | inventory Device, DB_ENGINE, migrations |
+| orm-t2.1 | test_device_model |
+| planned | S1, D3 DRF |

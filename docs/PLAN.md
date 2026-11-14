@@ -105,11 +105,28 @@
 
 ### D2 — ORM и доменная модель Device
 
-Поля: идентификатор устройства, версия прошивки, состояние, `last_seen_at`, аудит. Миграции, ограничения уникальности, admin (опционально).
+**Темы:** app `inventory`, `TextChoices`, PK `device_id`, автогенерация id, `DeviceCounter` (PostgreSQL), `DB_ENGINE`, миграции.
+
+**Практикум:** модель `Device`, `0001`–`0003`, переключатель sqlite/postgresql в `config/settings.py`, `.env.example`, `psycopg` в `requirements.txt`.
+
+**Реализовано в репозитории:** да (`inventory/models.py`, миграции).
 
 ### T2 — Тесты модели
 
-`TestCase`, `setUpTestData`, `pytest-django`, `@pytest.mark.django_db`, `IntegrityError`.
+**Темы:** `TestCase`, `setUpTestData`, `IntegrityError`, `TransactionTestCase`, concurrency, isolation (PostgreSQL).
+
+**Практикум:** `tests/test_device_model.py` — базовый ORM + расширенный контур транзакций; PG-only тесты с `skipTest` при sqlite.
+
+**Реализовано:** T2.1 (manage.py test). **Запланировано:** pytest-django (T2.2).
+
+### D2.1 / T2.1 — сводка артефактов
+
+| Артефакт | Назначение |
+|----------|------------|
+| `inventory.Device` | поля device_lab: state, firmware, last_seen_at |
+| `DeviceCounter` | потокобезопасный счётчик id на Postgres |
+| `tests/test_device_model.py` | ORM + транзакции |
+| README RU/EN/PL | модуль D2/T2, `DB_ENGINE` |
 
 ### S1 — PostgreSQL
 
@@ -206,7 +223,9 @@ GitHub Actions: установка deps, БД, `migrate`, `pytest`, артефа
 | http-d1 | D1/T1: `core`, `/health/`, `tests/test_health.py` |
 | config-d1.2 | `load_dotenv`, env-driven `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` |
 | routing-d1.3 | `version`, `reverse`/`resolve`, `test_routing` |
-| *planned* | D2 models, … |
+| orm-d2 | `inventory`, `Device`, migrations, `DB_ENGINE` |
+| orm-t2.1 | `test_device_model`, sqlite regression + PG skips |
+| *planned* | S1 Postgres, D3 DRF, … |
 
 ---
 

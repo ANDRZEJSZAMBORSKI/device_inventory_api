@@ -48,6 +48,9 @@
 | [Тестирование Client](#тестирование-djangotestclient) | in-process HTTP без сокета | `tests/test_health.py` |
 | [Модуль D1.2 — конфигурация](#модуль-d12--конфигурация-и-12-factor) | `.env`, секреты, `ALLOWED_HOSTS` | `config/settings.py` |
 | [Модуль D1.3 — маршрутизация](#модуль-d13--именованные-url-reverse-resolve) | `name=`, `reverse`, 404 | `core/urls.py`, `tests/test_routing.py` |
+| [Конфигурация БД](#конфигурация-бд-db_engine) | SQLite / PostgreSQL, `DB_ENGINE` | `config/settings.py`, `.env.example` |
+| [Модуль D2 — ORM Device](#модуль-d2--orm-и-модель-device) | модель, миграции, автоген PK | `inventory/models.py` |
+| [Модуль T2 — тесты ORM](#модуль-t21--тестирование-orm) | `TestCase`, транзакции, concurrency | `tests/test_device_model.py` |
 | [Учебный план](#учебная-программа) | полная программа курса | `docs/PLAN.md` |
 
 ### Содержание
@@ -61,9 +64,12 @@
 7. [Модуль D1.2 — конфигурация и 12-factor](#модуль-d12--конфигурация-и-12-factor)
 8. [Модуль D1.3 — именованные URL](#модуль-d13--именованные-url-reverse-resolve)
 9. [Контракт GET /version/](#контракт-get-version)
-10. [Команды тестирования](#команды-тестирования)
-11. [Учебная программа](#учебная-программа)
-12. [Дальнейшее развитие](#дальнейшее-развитие)
+10. [Конфигурация БД](#конфигурация-бд-db_engine)
+11. [Модуль D2 — ORM и модель Device](#модуль-d2--orm-и-модель-device)
+12. [Модуль T2.1 — тестирование ORM](#модуль-t21--тестирование-orm)
+13. [Команды тестирования](#команды-тестирования)
+14. [Учебная программа](#учебная-программа)
+15. [Дальнейшее развитие](#дальнейшее-развитие)
 
 ---
 
@@ -75,7 +81,7 @@ source .venv/Scripts/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# Заполните DJANGO_SECRET_KEY (см. раздел «Конфигурация»)
+# Заполните DJANGO_SECRET_KEY и DB_ENGINE (см. разделы «Конфигурация» и «БД»)
 
 python manage.py check
 python manage.py migrate
@@ -88,10 +94,16 @@ python manage.py runserver
 curl -s http://127.0.0.1:8000/health/ | head
 ```
 
-Запуск модульных тестов HTTP-слоя и маршрутизации:
+Регрессия HTTP, маршрутизации и ORM (основной набор на SQLite):
 
 ```bash
-python manage.py test tests.test_routing tests.test_health -v 2
+python manage.py test tests.test_device_model tests.test_routing tests.test_health -v 2
+```
+
+Проверка модели в shell (после `migrate`):
+
+```bash
+python manage.py shell -c "from inventory.models import Device; d=Device.objects.create(); print(d.device_id, d.state)"
 ```
 
 Проверка маршрутов в shell:
@@ -109,11 +121,15 @@ python manage.py shell -c "from django.urls import reverse; print(reverse('healt
 ```text
 device_inventory_api/
   config/                 # настройки проекта, корневой urlconf, WSGI/ASGI
-  core/                   # приложение: views, urlconf приложения
+  core/                   # HTTP: health, version (инфраструктурный слой)
+  inventory/              # домен: модель Device, миграции (модуль D2)
+    models.py
+    migrations/
   tests/                  # проектные тесты (вне startapp)
     __init__.py
     test_health.py        # модуль D1: Client + HttpRequest
     test_routing.py       # D1.3: reverse, resolve, 404
+    test_device_model.py  # D2/T2: ORM, транзакции, concurrency (часть — PostgreSQL)
   .env.example            # шаблон env (копия → .env локально)
   docs/
     PLAN.md               # учебная программа (RU/EN/PL)
@@ -134,7 +150,7 @@ device_inventory_api/
 
 | Слой | Ответственность | В текущей ревизии |
 |------|-----------------|-------------------|
-| **Model** | Схема данных, ORM, бизнес-инварианты у данных | встроенные apps (`auth`, …); доменная модель Device — следующий модуль |
+| **Model** | Схема данных, ORM, бизнес-инварианты у данных | `inventory.Device`; встроенные apps (`auth`, …) |
 | **Template** | Представление (HTML и др.) | не используется |
 | **View** | Обработка `HttpRequest`, выбор ответа | `core.views.health`, `core.views.version` |
 
@@ -357,13 +373,149 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 
 ---
 
+## Конфигурация БД (`DB_ENGINE`)
+
+Персистентность выбирается **явно** через переменную окружения (без «магии» в коде приложений).
+
+| `DB_ENGINE` | Движок | Типичное использование |
+|-------------|--------|-------------------------|
+| `sqlite` | `django.db.backends.sqlite3` | локальная разработка, быстрые тесты ORM |
+| `postgresql` | `django.db.backends.postgresql` | модуль S1, транзакции, блокировки, прод-профиль |
+
+Обязательные переменные (см. **`.env.example`**):
+
+| Переменная | Роль |
+|------------|------|
+| `DB_ENGINE` | `sqlite` или `postgresql` (иначе `ValueError` при старте) |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | подключение Postgres при `DB_ENGINE=postgresql` |
+
+Для SQLite в настройках заданы:
+
+- **`OPTIONS.transaction_mode: IMMEDIATE`** — согласованность с учебными сценариями конкурентной записи;
+- **`TEST.NAME`** — отдельный файл тестовой БД (`test_db.sqlite3`), не смешивается с dev `db.sqlite3`.
+
+Зависимость **`psycopg`** (v3) указана в `requirements.txt` для PostgreSQL.
+
+```bash
+python manage.py migrate    # применить inventory.0001 … 0003
+python manage.py dbshell    # psql / sqlite3 — по выбранному движку
+```
+
+---
+
+## Модуль D2 — ORM и модель `Device`
+
+### Цель модуля
+
+Закрепить **Django Model** как слой персистентности домена **device inventory**: схема таблицы, миграции, ORM-запросы, согласование полей с mock **`device_lab`** из hp-qa-junior-prep.
+
+### Pydantic vs Django (граница ответственности)
+
+| Аспект | `device_lab.Device` (Pydantic) | `inventory.Device` (Django) |
+|--------|--------------------------------|-----------------------------|
+| Назначение | валидация dict/JSON → Python-объект in-memory | строка в БД + ORM |
+| Сохранение | нет | `save()`, `QuerySet`, миграции |
+| Состояния | `DeviceState` (StrEnum) | `DeviceStatus` (`TextChoices`), в БД — строка |
+| Идентификатор | передаётся при `register(device_id)` | **автоген** `device-NNN` в `save()` (учебное отличие; в D5B зафиксируем API) |
+
+### Приложение `inventory`
+
+Домен вынесен из `core`: HTTP-диагностика остаётся в `core`, **инвентарь устройств** — в `inventory`.
+
+Префикс URL **`/inventory/`** зарезервирован в `config/urls.py` (`include("inventory.urls")`); маршруты REST появятся в блоке D3–D5.
+
+### Схема модели
+
+| Поле | Тип ORM | Семантика |
+|------|---------|-----------|
+| `device_id` | `CharField`, **PK**, `editable=False` | бизнес-id вида `device-001` |
+| `firmware_version` | `CharField`, default `"1.0.0"` | как в mock после `register` |
+| `state` | `CharField` + `choices` | `online`, `offline`, `dfu_in_progress` |
+| `last_seen_at` | `DateTimeField`, `null=True` | до heartbeat — `None` |
+| `created_at` / `updated_at` | `auto_now_add` / `auto_now` | аудит |
+
+**`DeviceStatus`** (`models.TextChoices`) — единый набор допустимых значений в коде; в PostgreSQL поле остаётся `VARCHAR` (строгость на уровне БД — опционально `CheckConstraint` в S1).
+
+**`Meta.ordering`** — сортировка по числовой части id (`device-998` … `device-1001`), не лексикографически по строке.
+
+### Генерация `device_id` в `save()`
+
+При создании без заданного PK логика внутри **`transaction.atomic()`**:
+
+```text
+SQLite:
+  max(число из device_id) + 1  →  device-{NNN} с динамической шириной (001, 1000, …)
+
+PostgreSQL:
+  DeviceCounter (pk=1) + select_for_update  →  next_value  →  device-{NNN}
+```
+
+Вспомогательная модель **`DeviceCounter`** и data-миграция `0002_create_device_counter` обеспечивают счётчик на Postgres. Учебный **`DeviceQuerySet.ordered_by_device_number()`** демонстрирует явную аннотацию сортировки (queryset-level; `Meta.ordering` — default для `Device.objects.all()`).
+
+### Миграции
+
+| Файл | Содержание |
+|------|------------|
+| `0001_initial` | `Device`, `DeviceCounter` |
+| `0002_create_device_counter` | `RunPython`: seed `DeviceCounter` pk=1 |
+| `0003_alter_device_options` | `ordering`, `verbose_name` |
+
+Команды: `makemigrations inventory`, `migrate`.
+
+### DoD модуля D2
+
+- App `inventory`, три миграции, поля совпадают с device_lab по значениям `state`;
+- автогенерация id, дефолт `offline` + `1.0.0`;
+- переключатель `DB_ENGINE`, `psycopg` в зависимостях.
+
+---
+
+## Модуль T2.1 — тестирование ORM
+
+Файл **`tests/test_device_model.py`** — единый контур регрессии модели и (расширенно) **транзакций БД**.
+
+### Уровни тестов
+
+| Класс Django | Назначение в проекте |
+|--------------|----------------------|
+| **`TestCase`** | быстрые ORM-тесты: дефолты, `IntegrityError`, filter, `setUpTestData`, ordering |
+| **`TransactionTestCase`** | реальные commit, потоки, `select_for_update`, isolation, savepoints |
+
+При `python manage.py test` Django создаёт **отдельную тестовую БД**, применяет миграции и **не портит** dev `db.sqlite3`.
+
+### Покрытие (обзор)
+
+| Группа | Примеры проверок |
+|--------|------------------|
+| **DeviceModelTest** | последовательные id, `device-1000`, duplicate PK, aware `last_seen_at`, `__str__` |
+| **DeviceSharedDataTest** | `setUpTestData`, filter по `state` |
+| **DeviceConcurrencyTest** | 5 потоков, уникальные id (SQLite) |
+| **DeviceIsolationTest** / **SkipLocked** / **Deadlock** | уровни изоляции, `F()`, `NOWAIT`, `SKIP LOCKED` — **только PostgreSQL** |
+| **DeviceAtomicSavepointTest** | вложенные `atomic`, откат savepoint |
+| **Serialization retry** | `SerializationFailure`, декоратор retry — Postgres |
+
+Тесты с `skipTest("Requires PostgreSQL …")` при `DB_ENGINE=sqlite` **пропускаются** (~15); на Postgres их нужно гонять отдельным прогоном (модуль S1).
+
+### Согласованность с T1
+
+Полный локальный прогон:
+
+```bash
+python manage.py test tests.test_device_model tests.test_routing tests.test_health -v 2
+```
+
+Ожидание на SQLite: **65 тестов**, OK, часть skipped.
+
+---
+
 ## Команды тестирования
 
 | Команда | Назначение |
 |---------|------------|
 | `python manage.py check` | системные проверки конфигурации |
 | `python manage.py test` | весь набор Django-test |
-| `python manage.py test tests.test_routing tests.test_health -v 2` | HTTP + маршрутизация (7 тестов) |
+| `python manage.py test tests.test_device_model tests.test_routing tests.test_health -v 2` | HTTP + маршрутизация + ORM |
+| `python manage.py test tests.test_device_model -v 2` | только D2/T2 (58+ тестов; PG-only — skip на sqlite) |
 | `python manage.py show_urls` | *(при установке django-extensions)* обзор маршрутов — опционально |
 
 ---
@@ -383,6 +535,8 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 | D1.2 | `load_dotenv`, `SECRET_KEY` / `DEBUG` / `ALLOWED_HOSTS` из env |
 | D1.3 | `version/`, `reverse`, `resolve`, 404 |
 | T1 | `tests/test_health.py`, `tests/test_routing.py` |
+| D2 | app `inventory`, `Device`, миграции, `DB_ENGINE`, автоген `device_id` |
+| T2.1 | `tests/test_device_model.py` (ORM + транзакции; PG-расширение) |
 
 ---
 
@@ -390,8 +544,8 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 
 | Этап | Содержание |
 |------|------------|
-| Персистентность | модель `Device`, миграции, admin (D2) |
-| API | DRF ViewSets, аутентификация, фильтрация |
+| S1 | PostgreSQL, `docs/SQL.md`, зелёный прогон PG-only тестов без skip |
+| API | DRF ViewSets, аутентификация, фильтрация (D3–D5) |
 | Домен | heartbeat, DFU — паритет с `device_lab` |
 | Качество | pytest-django, покрытие API, Allure |
 | Доставка | Dockerfile, `docker-compose.yml`, workflow CI |

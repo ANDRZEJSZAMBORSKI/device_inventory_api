@@ -40,13 +40,19 @@ Szacowany nakład: 200–280 godzin pracy z kodem i dokumentacją.
 - **D1:** `core`, endpoint `/health/`, `JsonResponse`, routing `include`.
 - **T1:** `tests/test_health.py`, `QueryDict`, Client.
 
-**Zrealizowano:** D1.2 config, D1.3 routing (`version`, `test_routing`). **Kolejny:** D2 modele.
+**Zrealizowano:** D1.2 config, D1.3 routing; **D2** (`inventory.Device`, migracje, `DB_ENGINE`); **T2.1** (`test_device_model`). **Kolejny:** S1 Postgres lub D3 DRF.
 
 ---
 
-## 5. Blok II–V
+## 5. Blok II — D2/T2 (zrealizowane)
 
-D2 model Device; S1 `docs/SQL.md`; D3–D5B REST i DFU; T6 httpx; D6 Compose; T6b Actions.
+- App `inventory`, model `Device`, `DeviceStatus`, autogeneracja `device_id`.
+- `DB_ENGINE` sqlite/postgresql, `psycopg`, `.env.example`.
+- Testy: `tests/test_device_model.py` (ORM + transakcje; część tylko Postgres).
+
+## 6. Blok II–V (plan)
+
+S1 `docs/SQL.md`; D3–D5B REST i DFU; T6 httpx; D6 Compose; T6b Actions.
 
 ---
 
